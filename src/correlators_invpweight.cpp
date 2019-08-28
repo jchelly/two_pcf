@@ -983,11 +983,9 @@ void cross_pair_count_angular(const GalaxyPixels *cat_1, const GalaxyPixels *cat
 }
 
 
-void cross_pair_count_projected(const GalaxyPixels *cat_1, const GalaxyPixels *cat_2, JKHists *hist) {
+void cross_pair_count_projected(const GalaxyPixels *cat_1, const GalaxyPixels *cat_2, JKHists *hist, 
+                                double transverse_max) {
 
-
-  // Prevent this from compiling for now
-#error TODO: modify this to actually do the projected calculation!
 
 #pragma omp parallel 
 	{
@@ -995,29 +993,54 @@ void cross_pair_count_projected(const GalaxyPixels *cat_1, const GalaxyPixels *c
 		JKHists priv_hist(hist->n_jk_regions, hist->full_hist);
 
 #pragma omp for schedule(dynamic)
+
+                // Loop over all pixels in cat_1 which contain galaxies
 		for (int ii = 0; ii < cat_1->n_pixels_used; ++ii) {
 
+			// Find angular coordinates of this pixel in cat_1
 			pointing pt = cat_1->healpix.pix2ang(cat_1->pixels[ii].healpix);
 			rangeset<int> rs;
-			cat_1->healpix.query_disc(pt, cat_1->theta_max + 2.0*cat_1->healpix.max_pixrad(), rs);
 
+                        // Loop over galaxies in cat_1 to find maximum theta_max for this pixel
+                        double max_theta_max = 0.0;
+                        for (int kk = 0; kk < cat_1->pixels[ii].numgals; ++kk) {                          
+                          Galaxy *gal_1 = &cat_1->pixels[ii].gal[kk];
+                          double theta_max_gal = transverse_max / gal_1->d_comov; /* small angle approximation */
+                          if(theta_max_gal > max_theta_max) max_theta_max = theta_max_gal;
+                        }
+
+			// Find all healpix pixels within radius max_theta_max of the pixel from cat_1
+			// Allow an extra 2*max pixel size because we don't know where each galaxy is within the pixel.
+			cat_1->healpix.query_disc(pt, max_theta_max + 2.0*cat_1->healpix.max_pixrad(), rs);
+
+                        // Loop over neighbour pixels
 			for (int range = 0; range < (int)rs.nranges(); ++range) {
 			  for (int hp = rs.ivbegin(range); hp < rs.ivend(range); ++hp) {
 
 					int jj = cat_2->healpix_to_pixel_id[hp];
 					if (jj != -1) {
-
+                                                // Loop over cat_1 galaxies in the central pixel
 						for (int kk = 0; kk < cat_1->pixels[ii].numgals; ++kk) {
+					                // Loop over cat_2 galaxies in this neighbour pixel
 							for (int ll = 0; ll < cat_2->pixels[jj].numgals; ++ll) {
 
+								// Get pointers to cat_1 and cat_2 galaxies
 								Galaxy *gal_1 = &cat_1->pixels[ii].gal[kk], *gal_2 = &cat_2->pixels[jj].gal[ll];
 
-								double one_minus_cos_theta = 1.0;
+                                                                // Get angle between these galaxies
+								double cos_theta = 0.0;
 								for (int mm = 0; mm < 3; ++mm) {
-									one_minus_cos_theta -= gal_1->x_norm[mm] * gal_2->x_norm[mm];
+                                                                  cos_theta += gal_1->x_norm[mm] * gal_2->x_norm[mm];
 								}
+                                                                double theta = acos(cos_theta);
 
-								priv_hist.add_pair(gal_1->jk_region, gal_2->jk_region, one_minus_cos_theta, gal_1->input_weight*gal_2->input_weight);
+								// Compute comoving transverse distance between these two galaxies if we assume
+                                                                // gal_2 is at the same distance as gal_1
+                                                                double transverse_dist = gal_1->d_comov * theta;
+                                                                
+                                                                // Add this pair to the histogram
+                                                                if(transverse_dist < transverse_max)
+                                                                  priv_hist.add_pair(gal_1->jk_region, gal_2->jk_region, transverse_dist, gal_1->input_weight*gal_2->input_weight);
 
 							}
 						}
@@ -1081,7 +1104,7 @@ void calc_angular_upweight(GalaxyCatalogue *data, GalaxyCatalogue *randoms, Para
 		Hist temp_hist(0.0, params.transverse_max, params.transverse_n_bins, params.transverse_log_base);
 		JKHists DR(params.n_jk_regions, temp_hist);
 		// New function cross_pair_count_angular
-		cross_pair_count_projected(&data_pixels, &random_pixels, &DR);
+		cross_pair_count_projected(&data_pixels, &random_pixels, &DR, params.transverse_max);
 		DR.output_hdf5(params.projected_dr_filename);
         }
 
