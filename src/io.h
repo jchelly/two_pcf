@@ -81,6 +81,12 @@ public:
 	std::string dither_weight_dataset_name;
 	int n_bitwise_runs;
 
+        bool calculate_projected_dr;
+        std::string projected_dr_filename;
+        double transverse_max;
+        int transverse_n_bins;
+        double transverse_log_base;
+        
 	Params(std::string input_filename);
 
 };

@@ -216,7 +216,21 @@ Params::Params(std::string input_filename) {
 			else if (key == "n_bitwise_runs") {
 				n_bitwise_runs = std::stoi(value);
 			}
-
+                        else if (key == "calculate_projected_dr") {
+                          calculate_projected_dr = std::stoi(value);
+                        }
+                        else if (key == "projected_dr_filename") {
+                          projected_dr_filename = value;
+                        }
+                        else if (key == "transverse_max") {
+                          transverse_max = std::stod(value);
+                        }
+                        else if (key == "transverse_n_bins") {
+                          transverse_n_bins = std::stoi(value);
+                        }
+                        else if (key == "transverse_log_base") {
+                          transverse_log_base = std::stod(value);
+                        }
 			else {
 				key_found = false;
 				std::cout << "KEY NOT FOUND\n";
