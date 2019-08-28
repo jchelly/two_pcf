@@ -982,6 +982,60 @@ void cross_pair_count_angular(const GalaxyPixels *cat_1, const GalaxyPixels *cat
 	hist->invert_jk_hists();
 }
 
+
+void cross_pair_count_projected(const GalaxyPixels *cat_1, const GalaxyPixels *cat_2, JKHists *hist) {
+
+
+  // Prevent this from compiling for now
+#error TODO: modify this to actually do the projected calculation!
+
+#pragma omp parallel 
+	{
+
+		JKHists priv_hist(hist->n_jk_regions, hist->full_hist);
+
+#pragma omp for schedule(dynamic)
+		for (int ii = 0; ii < cat_1->n_pixels_used; ++ii) {
+
+			pointing pt = cat_1->healpix.pix2ang(cat_1->pixels[ii].healpix);
+			rangeset<int> rs;
+			cat_1->healpix.query_disc(pt, cat_1->theta_max + 2.0*cat_1->healpix.max_pixrad(), rs);
+
+			for (int range = 0; range < (int)rs.nranges(); ++range) {
+			  for (int hp = rs.ivbegin(range); hp < rs.ivend(range); ++hp) {
+
+					int jj = cat_2->healpix_to_pixel_id[hp];
+					if (jj != -1) {
+
+						for (int kk = 0; kk < cat_1->pixels[ii].numgals; ++kk) {
+							for (int ll = 0; ll < cat_2->pixels[jj].numgals; ++ll) {
+
+								Galaxy *gal_1 = &cat_1->pixels[ii].gal[kk], *gal_2 = &cat_2->pixels[jj].gal[ll];
+
+								double one_minus_cos_theta = 1.0;
+								for (int mm = 0; mm < 3; ++mm) {
+									one_minus_cos_theta -= gal_1->x_norm[mm] * gal_2->x_norm[mm];
+								}
+
+								priv_hist.add_pair(gal_1->jk_region, gal_2->jk_region, one_minus_cos_theta, gal_1->input_weight*gal_2->input_weight);
+
+							}
+						}
+
+					}
+
+				}
+			}
+		}
+		(*hist).reduce(priv_hist);
+
+	}
+
+	hist->invert_jk_hists();
+}
+
+
+
 void calc_angular_upweight(GalaxyCatalogue *data, GalaxyCatalogue *randoms, Params params) {
 
 	if (params.calculate_angular_dd) {
@@ -1017,6 +1071,19 @@ void calc_angular_upweight(GalaxyCatalogue *data, GalaxyCatalogue *randoms, Para
 		DR.output_hdf5(params.angular_dr_filename);
 
 	}
+
+        if (params.calculate_projected_dr) {
+            
+		std::cout << "Calculating projected DRs\n";
+		GalaxyPixels data_pixels(data->gals, data->n_gals, params.healpix_order, params.theta_max, 0);
+		GalaxyPixels random_pixels(randoms->gals, randoms->n_gals, params.healpix_order, params.theta_max, 0);
+		// New params for histograms: tranverse_max, tranverse_n_bins, tranverse_log_base
+		Hist temp_hist(0.0, params.transverse_max, params.transverse_n_bins, params.transverse_log_base);
+		JKHists DR(params.n_jk_regions, temp_hist);
+		// New function cross_pair_count_angular
+		cross_pair_count_projected(&data_pixels, &random_pixels, &DR);
+		DR.output_hdf5(params.projected_dr_filename);
+        }
 
 	if (params.calculate_angular_dr_invpweights) {
 
