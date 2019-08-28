@@ -9,7 +9,7 @@ OPTIONS += -D_N_MASK_INTS=1
 ######################
 
 COMP = icc
-OPT = -Wall -std=c++11 -openmp $(OPTIONS) -O3 -inline-level=2 -ipo1 -ansi-alias -vec-report=2 -align #icc
+OPT = -Wall -std=c++11 -qopenmp $(OPTIONS) -O3 -inline-level=2 -ipo1 -ansi-alias -align #icc
 #OPT = -Wall -std=c++11 -fopenmp #g
 #INCLUDES AND LIBRARIES
 INCLUDECOM = -I./src -I./src/healpix
