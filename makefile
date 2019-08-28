@@ -2,7 +2,7 @@
 
 OPTIONS = -D_HAVE_HDF5
 OPTIONS += -D_ANGULAR_PI_DEFN
-#OPTIONS += -D_USE_INV_WEIGHTS # Turn on for inverse p-weights
+OPTIONS += -D_USE_INV_WEIGHTS # Turn on for inverse p-weights
 #OPTIONS += -D_USE_DITHER_WEIGHTS # Turn on for extra dither weights
 OPTIONS += -D_N_MASK_INTS=1
 
